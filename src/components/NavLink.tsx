@@ -13,8 +13,8 @@ const NavLink = ({ name, href }: NavLinkProps) => {
   return (
     <li
       className={joinClassNames(
-        "relative block cursor-pointer px-3 py-2 transition",
-        isActive ? "underline" : ""
+        "relative block cursor-pointer px-3 py-2 transition hover:underline",
+        isActive ? "font-extrabold " : ""
       )}
     >
       <Link href={href}>{name}</Link>
