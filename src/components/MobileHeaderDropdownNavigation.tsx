@@ -7,7 +7,10 @@ const MobileHeaderDropdownNavigation = () => {
   return (
     <Popover className="pointer-events-auto">
       <Popover.Button className="group flex items-center px-4 py-2 text-sm font-medium text-zinc-800 ">
-        <Bars3BottomRightIcon className="ml-4 h-8 w-8 cursor-pointer" />
+        <Bars3BottomRightIcon
+          aria-role="button"
+          className="ml-4 h-8 w-8 cursor-pointer"
+        />
       </Popover.Button>
       <Transition.Root>
         <Transition.Child

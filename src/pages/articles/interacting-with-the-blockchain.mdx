@@ -1,4 +1,4 @@
-import Layout from "@/components/Layout";
+import ArticleLayout from "@/components/ArticleLayout";
 
 export const meta = {
   author: "Bow Tied Hamachi",
@@ -8,7 +8,9 @@ export const meta = {
     "Connecting our frontend to the smart contract we deployed on goerli.",
 };
 
-export default ({ children }) => <Layout>{children}</Layout>;
+export default ({ children }) => (
+  <ArticleLayout meta={meta}>{children}</ArticleLayout>
+);
 
 ## Introduction
 

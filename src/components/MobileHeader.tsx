@@ -7,6 +7,7 @@ const MobileHeader = () => {
     <ul className="flex items-center justify-between md:hidden">
       <Image
         src="/ProfilePic.jpeg"
+        alt="Profile Image"
         width={60}
         height={60}
         className="aspect-square rotate-3 rounded-full bg-zinc-100 object-cover "

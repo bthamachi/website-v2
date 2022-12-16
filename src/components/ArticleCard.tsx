@@ -1,6 +1,6 @@
+import { formatDate } from "@/lib/post";
 import { Metadata } from "@/types/Post";
 import { ChevronRightIcon } from "@heroicons/react/24/solid";
-import format from "date-fns/format";
 import SmartLink from "./SmartLink";
 
 type ArticleCardProp = {
@@ -14,8 +14,8 @@ const ArticleCard = ({ slug, meta }: ArticleCardProp) => {
       <SmartLink name={meta.title} href={`/articles/${slug}`}>
         <div className="grid grid-cols-5">
           <div>
-            <p className="text-md  text-zinc-400 dark:text-zinc-500">
-              <>{format(new Date(meta.date), "MMMM d, yyyy ")}</>
+            <p className="text-md text-zinc-400 dark:text-zinc-500">
+              <>{formatDate(meta)}</>
             </p>
           </div>
 
