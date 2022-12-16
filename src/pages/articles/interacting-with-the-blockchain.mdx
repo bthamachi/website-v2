@@ -1,0 +1,429 @@
+import Layout from "@/components/Layout";
+
+export const meta = {
+  author: "Bow Tied Hamachi",
+  date: "2022-10-06",
+  title: "Interacting with the blockchain",
+  description:
+    "Connecting our frontend to the smart contract we deployed on goerli.",
+};
+
+export default ({ children }) => <Layout>{children}</Layout>;
+
+## Introduction
+
+> This article is a continuation of the previous article on deploying a smart contract on the goerli testnet. If you haven't read it yet, you can check it out [here](https://www.bowtiedhamachi.com/articles/my-first-solidity-contract)
+
+In this article, we'll be building out a frontend that interacts nicely with the smart contract that we've deployed on the goerli testnet. We'll be making use of the `web3Modal` library and `ethers` library to interface with the goerli chain.
+
+> Note : There's a lot of room for optimisations for the code admittedly. A sample version of the frontend can be found at https://smart-contract-calculator.vercel.app/ with the code at https://github.com/bthamachi/Smart-Contract-Calculator
+> Let's start up a small NextJS application with typescript support.
+
+```bash
+npx create-next-app@latest --ts frontend
+```
+
+to create a new app called `frontend`. This will create a new folder called `frontend` which will house our frontend code.
+
+```bash
+cd frontend  // change this to whatever you named your project
+npm install --save web3modal ethers @dethcrypto/eth-sdk @dethcrypto/eth-sdk-client ts-node
+```
+
+> Note : We previously deployed our contract at 0x0b8a1019a6E130cc1a8Ad211CA01e02D39fa92d8. Feel free to use an alternative address if you've deployed it elsewhere.
+
+## Generating our Contract Types
+
+Now we need to generate the types for our contract. Let's start by writing a small config file at `eth-sdk/config.ts`
+
+```js
+import type { EthSdkConfig } from "@dethcrypto/eth-sdk";
+
+const config: EthSdkConfig = {
+  contracts: {
+    // We are looking to deploy types for the goerli network
+    goerli: {
+      // We want to interact with our calculator smart contract at this address
+      calculator: "0x0b8a1019a6E130cc1a8Ad211CA01e02D39fa92d8",
+    },
+  },
+
+  // We want to have our types live in the src/contractTypes folder
+  outputPath: "./src/contractTypes/",
+};
+
+export default config;
+```
+
+Now let's run the `eth-sdk` library which will automatically generate the relevant contracts for us.
+
+```bash
+npx eth-sdk
+```
+
+This should in turn result in the following output.
+
+```bash
+Loaded sdk definition from .../frontend/eth-sdk
+✔ Getting ABIs
+✔ Generating client
+SDK generated to: src/contractTypes
+```
+
+With this, we now have a way of calling our smart contracts in a manner that is fully typed.
+
+## Hooking up our wallet
+
+I prefer to use React Context as a way of managing global state variables. This is because we can easily expose global variables using an easy useContext hook.
+
+For this example, we'll be using React wallet to manage access to our user's wallet. Let's start by defining a quick scaffolding for the wallet context.
+
+```js
+// src/context/state.js
+import { createContext, useContext } from "react";
+
+const WalletContext = createContext();
+
+export function WalletWrapper({ children }) {
+  let sharedState = {
+    /* whatever you want */
+  };
+
+  return (
+    <WalletContext.Provider value={sharedState}>
+      {children}
+    </WalletContext.Provider>
+  );
+}
+
+export function useWalletContext() {
+  return useContext(WalletContext);
+}
+```
+
+We want to expose a few different things
+
+1. A generic contract interface which we can use to call our interface
+2. A boolean which we can use to determine if we have a wallet connected.
+3. A function to connect our wallets
+4. A function to disconnect our wallets
+
+This corresponds to the type as seen below
+
+```ts
+type WalletContextType = {
+  connectWallet: () => void;
+  disconnectWallet: () => void;
+  // This is a custom type provided by eth-sdk
+  contractInterface: GoerliSdk | undefined;
+  isConnected: Boolean;
+};
+```
+
+> It's important here to note that Web3Modal doesn't ever disconnect your wallet. It only clears the cached provider. Once your wallet has granted permission to a dApp, it has permanent permissions. Make sure to revoke permissions before leaving a site.
+
+First, let's initialise a `Web3Modal` which will allow us to interact with the wallet of the user's choice. This can be done by using a `useEffect` Hook
+
+> By setting the dependency array to `[]`, we effectively only run this once whenever the function renders.
+
+```ts
+useEffect(() => {
+  const modal = new Web3Modal({
+    network: "goerli",
+  });
+  setModal(modal);
+  console.log(modal.cachedProvider);
+}, []);
+```
+
+We also track a few pieces of state within our context .
+
+```js
+const [modal,setModal] = useState<Web3Modal>()
+const [sdk,setSdk] = useState<GoerliSdk>()
+const [walletConnected,setWalletConnected] = useState(false);
+```
+
+Let's continue by implementing a few of the methods
+
+**Connect Wallet**
+
+```ts
+const connectWallet = async () => {
+  if (!modal) {
+    throw new Error("Modal must be initialised to connect wallet");
+  }
+  //Initialise Information
+  const provider = await modal?.connect();
+  const web3Provider = await new providers.Web3Provider(provider);
+  const signer = web3Provider.getSigner();
+
+  const contracts = getGoerliSdk(signer);
+
+  //Update State
+  setSdk(contracts);
+  setWalletConnected(true);
+};
+```
+
+**Disconnect Wallet**
+
+```ts
+const disconnectWallet = async () => {
+  if (!modal) {
+    throw new Error("Modal must be initialised to disconnect wallet");
+  }
+  await modal?.clearCachedProvider();
+  setWalletConnected(false);
+};
+```
+
+This essentially forms the backbone of our context which will now look something like this
+
+```ts
+// src/context/state.js
+import { createContext, useContext, useEffect, useState } from "react";
+import Web3Modal from "web3modal";
+import { providers } from "ethers";
+import { getGoerliSdk, GoerliSdk } from "../contractTypes";
+
+type WalletContextType = {
+  connectWallet: () => void;
+  disconnectWallet: () => void;
+  // This is a custom type provided by eth-sdk
+  contractInterface: GoerliSdk | undefined;
+  isConnected: Boolean;
+};
+
+const WalletContext = createContext<WalletContextType>(null!);
+
+//@ts-ignore
+export function WalletWrapper({ children }) {
+  const [modal, setModal] = useState<Web3Modal>();
+  const [sdk, setSdk] = useState<GoerliSdk>();
+  const [walletConnected, setWalletConnected] = useState(false);
+
+  useEffect(() => {
+    const modal = new Web3Modal({
+      network: "goerli",
+    });
+    setModal(modal);
+    console.log(modal.cachedProvider);
+  }, []);
+
+  const connectWallet = async () => {
+    if (!modal) {
+      throw new Error("Modal must be initialised to connect wallet");
+    }
+    //Initialise Information
+    const provider = await modal?.connect();
+    const web3Provider = await new providers.Web3Provider(provider);
+    const signer = web3Provider.getSigner();
+
+    const contracts = getGoerliSdk(signer);
+
+    //Update State
+    setSdk(contracts);
+    setWalletConnected(true);
+  };
+
+  const disconnectWallet = async () => {
+    if (!modal) {
+      throw new Error("Modal must be initialised to disconnect wallet");
+    }
+    await modal?.clearCachedProvider();
+    setWalletConnected(false);
+  };
+
+  let sharedState = {
+    connectWallet,
+    isConnected: walletConnected,
+    disconnectWallet,
+    contractInterface: sdk,
+  };
+
+  return (
+    <WalletContext.Provider value={sharedState}>
+      {children}
+    </WalletContext.Provider>
+  );
+}
+
+export function useWalletContext() {
+  return useContext(WalletContext);
+}
+```
+
+> Note here that we've exposed a custom `useWalletContext` hook which allows us to easily extract out valuable bits of information whenever we want to.
+
+Now we just need to pop over to `_app.tsx` in our `src/pages` folder to finish off our gander with context
+
+```js
+...
+const MyApp: AppType = ({ Component, pageProps }) => {
+  return <WalletWrapper>
+    <Component {...pageProps} />
+  </WalletWrapper>
+};
+...
+```
+
+## Calling Contract Functions on our Front End
+
+Now let's look as to how we can call our function on our frontend.
+
+Let's first write up a small component that handles user wallet connects.
+
+```js
+import React from "react";
+import { useWalletContext } from "../context/WalletContext";
+
+const WalletButton = () => {
+  const { connectWallet, isConnected, disconnectWallet } = useWalletContext();
+
+  if (isConnected) {
+    return (
+      <div className="flex items-center justify-center">
+        <p>Wallet Connected!</p>
+        <button
+          onClick={() => disconnectWallet()}
+          className="mx-4 border px-4 py-2"
+        >
+          Disconnect Wallet
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button onClick={() => connectWallet()}>Connect Wallet</button>
+    </div>
+  );
+};
+
+export default WalletButton;
+```
+
+All this component does is render a button for users to click to connect to connect their wallet. With this we have the first portion settled.
+
+Next, let's look at how we can call our contract on the frontend. For reference, here is the source code of the contract we'll be interacting with.
+
+```solidity
+//SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract Calculator {
+    // Code goes here
+
+    function add(int256 a, int256 b) public pure returns (int256) {
+        return a + b;
+    }
+
+    function minus(int256 a, int256 b) public pure returns (int256) {
+        return a - b;
+    }
+}
+```
+
+It has two simple functions - `add` and `minus` which each just operate on two `int256` variables. We can call either of these functions by simply performing
+
+```js
+const { contractInterface } = useWalletContext();
+
+contractInterface?.calculator.add(3, 4).then((res) => console.log(res));
+```
+
+And that's it! We can then move on to scaffolding out a rough html with the following code.
+
+```js
+import type { NextPage } from "next";
+import Head from "next/head";
+import { useState } from "react";
+import WalletButton from "../components/WalletButton";
+import { useWalletContext } from "../context/WalletContext";
+import React from "react";
+
+const Home: NextPage = () => {
+  const [a, setA] = useState("");
+  const [b, setB] = useState("");
+  const { contractInterface, isConnected } = useWalletContext();
+
+  const [result, setResult] = useState(0);
+
+  const onAdd = async (e: any) => {
+    e.preventDefault();
+    const res = await contractInterface?.calculator.add(
+      parseInt(a),
+      parseInt(b)
+    );
+    if (res) {
+      setResult(res?.toNumber());
+    }
+  };
+
+  const onMinus = async (e: any) => {
+    e.preventDefault();
+    const res = await contractInterface?.calculator.minus(
+      parseInt(a),
+      parseInt(b)
+    );
+    if (res) {
+      setResult(res?.toNumber());
+    }
+  };
+
+  return (
+    <>
+      <main className="container mx-auto flex min-h-screen flex-col items-center justify-center p-4">
+        <WalletButton />
+        {!isConnected && (
+          <p>Please connect your wallet to see the rest of the app</p>
+        )}
+
+        {isConnected && (
+          <>
+            <p>Your last calculation was {result}</p>
+            <div className="flex flex-col">
+              <h1>Calculator</h1>
+              <form>
+                <div>
+                  <label>First Value</label>
+                  <input
+                    onChange={(e) => setA(e.target.value)}
+                    value={a}
+                    className="mx-4 border"
+                    type="text"
+                  />
+                </div>
+                <div>
+                  <label>Second Value</label>
+                  <input
+                    onChange={(e) => setB(e.target.value)}
+                    className="mx-4 border"
+                    type="text"
+                    value={b}
+                  />
+                </div>
+
+                <button onClick={(e) => onAdd(e)} className="border">
+                  Add
+                </button>
+                <button onClick={(e) => onMinus(e)} className="border">
+                  Minus
+                </button>
+              </form>
+            </div>
+          </>
+        )}
+      </main>
+    </>
+  );
+};
+
+export default Home;
+```
+
+This gives us a simple user interface which can call the smart contract we've defined easily.
+
+> Note : There's a lot of room for optimisations for the code admittedly. A sample version of the frontend can be found at https://smart-contract-calculator.vercel.app/ with the code at https://github.com/bthamachi/Smart-Contract-Calculator

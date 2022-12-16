@@ -1,0 +1,402 @@
+import { ArticleLayout } from '@/components/ArticleLayout'
+
+export const meta = {
+  author: 'Bow Tied Hamachi',
+  date: '2022-10-03',
+  title: 'My First Solidity Contract',
+  description:
+    'First attempts at building',
+}
+
+export default (props) => <ArticleLayout meta={meta} {...props} />
+
+
+## Introduction
+
+After building a bunch of different projects following a tutorial online, I wanted to try building my own smart contract to see if I could apply what I had learnt. I had a few conditions in mind, namely that
+
+- It had to be relatively simple to understand without using any complex ERCs that might obscure functionality
+- It needed to be covered by unit testing
+- It needed to be verified on etherscan
+
+so without further ado, I booted up a fresh copy of hardhat 
+
+```bash
+mkdir hardhat
+cd hardhat
+npm init -y
+npm install --save hardhat
+npx hardhat
+```
+
+and selected the typescript option.
+
+## Contract Writing
+
+### Main Scope
+
+After some serious deliberation, I settled on the humble calculator. I had just two simple specs in mind - it had to be able to add and subtract two numbers. That was all I wanted it to do. So I started by scaffolding out a basic smart contract with some simple stubs to pass the compiler's checks.
+
+```sol
+contract Calculator {
+
+    function add(int256 a, int256 b) public pure returns (int256) {
+        return a;
+    }
+
+    function minus(int256 a, int256 b) public pure returns (int256) {
+        return b;
+    }
+}
+```
+
+### Testing
+
+I knew I wanted two basic functions - addition and subtraction and so I begun with some simple specifications in mind before writing my code. 
+
+- Addition
+  - Add two positive numbers
+  - Add two negative numbers
+  - Add one positive and negative number
+- Minus
+  - Find the difference between two positive numbers
+  - Find the difference between two negative numbers
+  - Find the difference between a positive and negative number
+
+
+It turns out you can do this pretty simply in hardhat by using `chai` and writing a small `.ts` file in the `/test` folder of your smart contract repository.
+
+We also define two new functions so that we can easily generate random positive and negative number
+
+```
+const getRandomNumber = () => {
+  return Math.floor(Math.random() * (2 ** 25));
+}
+
+const getRandomNegativeNumber = () => {
+  return getRandomNumber() * (-1)
+}
+```
+
+As such here are the tests for addition
+
+```typescript
+describe("Calculator Addition", function () {
+  it("should be able to add two positive values", async function () {
+    const [owner] = await ethers.getSigners();
+
+    const Calculator = await ethers.getContractFactory("Calculator");
+
+    const CalculatorContract = await Calculator.deploy();
+
+    const a = getRandomNumber()
+    const b = getRandomNumber()
+
+    const expectedValue = a + b
+
+    const actualValue = await CalculatorContract.add(a, b);
+    expect(actualValue).to.equal(expectedValue);
+  });
+
+  it("should be able to add two negative values", async function () {
+    const [owner] = await ethers.getSigners();
+
+    const Calculator = await ethers.getContractFactory("Calculator");
+
+    const CalculatorContract = await Calculator.deploy();
+
+    const a = -1 * getRandomNumber();
+    const b = -1 * getRandomNumber();
+
+    const expectedValue = a + b
+
+    const actualValue = await CalculatorContract.add(a, b);
+    expect(actualValue).to.equal(expectedValue);
+  });
+
+  it("should be able to add one positive and one negative value", async function () {
+    const [owner] = await ethers.getSigners();
+
+    const Calculator = await ethers.getContractFactory("Calculator");
+
+    const CalculatorContract = await Calculator.deploy();
+
+    const a = getRandomNumber();
+    const b = -1 * getRandomNumber();
+
+    const expectedValue = a + b;
+
+    const actualValue = await CalculatorContract.add(a, b);
+    expect(actualValue).to.equal(expectedValue);
+  });
+});
+```
+
+and here are the tests for minus 
+
+```
+describe("Calculator Minus", function () {
+  it("should be able to calculate the difference between two positive numbers", async function () {
+    const CalculatorFactory = await ethers.getContractFactory("Calculator");
+    const CalculatorContract = await CalculatorFactory.deploy();
+    const a = getRandomNumber();
+    const b = getRandomNumber();
+    const expected = a - b;
+    const actual = await CalculatorContract.minus(a, b);
+    expect(actual).to.equal(expected)
+  })
+
+  it("should be able to calculate the difference between two negative numbers", async function () {
+
+    const CalculatorFactory = await ethers.getContractFactory("Calculator");
+    const CalculatorContract = await CalculatorFactory.deploy();
+    const a = getRandomNegativeNumber();
+    const b = getRandomNegativeNumber();
+    const expected = a - b;
+    const actual = await CalculatorContract.minus(a, b);
+    expect(actual).to.equal(expected)
+  })
+
+  it("should be able to calculate the difference between a positive and negative number", async function () {
+
+    const CalculatorFactory = await ethers.getContractFactory("Calculator");
+    const CalculatorContract = await CalculatorFactory.deploy();
+    const a = getRandomNumber();
+    const b = getRandomNegativeNumber();
+    const expected = a - b;
+    const actual = await CalculatorContract.minus(a, b);
+    expect(actual).to.equal(expected)
+  })
+})
+```
+
+This covers all the initial scope of our first function and we are done. Our first attempts to run the tests should result in all our tests failing as seen below when we run `npx hardhat test`
+
+```
+Compiled 1 Solidity file successfully
+
+
+  Calculator Minus
+    1) should be able to calculate the difference between two positive numbers
+    2) should be able to calculate the difference between two negative numbers
+    3) should be able to calculate the difference between a positive and negative number
+
+  Calculator Addition
+    4) should be able to add two positive values
+    5) should be able to add two negative values
+    6) should be able to add one positive and one negative value
+
+
+  0 passing (1s)
+  6 failing
+```
+
+### Writing the Contract
+
+Now that we've defined the tests itself, we turn our attention back towards the initial function we defined. It's not a very complicated contract so we can simply rewrite `add` as 
+
+```sol
+function add(int256 a, int256 b) public pure returns (int256) {
+        return a + b;
+    }
+```
+
+instead of the original stub that we used earlier as seen below.
+
+```sol
+function add(int256 a, int256 b) public pure returns (int256) {
+        return a;
+}
+```
+
+> Question : Why are we using a int256 instead of a uint256 which seems to be a more common type that's used by other contracts?
+
+> Answer : That's because we want to support the calculator returning values that are negative and doing calculations with negative values.
+
+and we can then modify our `minus` function to get 
+
+```sol
+function minus(int256 a, int256 b) public pure returns (int256) {
+        return a - b;
+}
+```
+
+We can verify that this works by simply running all our tests with `npx hardhat test` to get
+
+```
+...
+Compiled 1 Solidity file successfully
+
+
+  Calculator Minus
+    ✔ should be able to calculate the difference between two positive numbers (929ms)
+    ✔ should be able to calculate the difference between two negative numbers (39ms)
+    ✔ should be able to calculate the difference between a positive and negative number (49ms)
+
+  Calculator Addition
+    ✔ should be able to add two positive values (44ms)
+    ✔ should be able to add two negative values (38ms)
+    ✔ should be able to add one positive and one negative value
+
+
+  6 passing (1s)
+```
+
+and now we have a working contract.
+
+## Deployment
+
+Now we move on to deployment. We have a few things here that we need to do
+
+1. Compile our smart contract 
+2. Deploy our smart contract ( I've chosen the goerli testnet in this case )
+3. Verify our smart contract 
+
+
+> Verification of a smart contract is simply submitting it to Etherscan/block explorer of the network to ensure that the compiled code deployed on-chain matches the code you've submitted for verification. This allows people to see your source code and verify you've not done any malicious actions.
+
+### Configuring your actions 
+
+First, we need to install a few packages
+
+```
+npm install --save dotenv @nomicfoundation/hardhat-toolbox
+```
+
+`dotenv` allows us to be able to access enviromental variables while the `@nomicfoundation/hardhat-toolbox` gives us a new verify plugin.
+
+Let's also update our `hardhat.config.ts` file.
+
+```ts
+require("dotenv").config();
+require("@nomicfoundation/hardhat-toolbox");
+
+const { API_URL, PRIVATE_KEY, ETHERSCAN_KEY } = process.env;
+
+module.exports = {
+  solidity: "0.8.9",
+  networks: {
+    goerli: {
+      url: API_URL,
+      accounts: [PRIVATE_KEY],
+    },
+  },
+  etherscan: {
+    apiKey: ETHERSCAN_KEY,
+  },
+};
+```
+
+and create a corresponding `.env` file with the following values 
+
+```
+API_URL=
+PRIVATE_KEY=
+ETHERSCAN_KEY = 
+```
+
+- API_URL : You need a http node to access a chain, this can be through services such as Alchemy or Quicknode.
+- PRIVATE_KEY : You can export this from Metamask
+- ETHERSCAN_KEY : I use this since I'm deploying to goerli and you can get one at https://etherscan.io/.
+
+
+### Writing up a deploy file 
+
+Just use the following deploy file to auto-deploy and verify. Mine is called `deploy.ts`. You can run it with 
+
+```
+npx hardhat run scripts/deploy.ts --network goerli
+```
+
+It does a few things (in order)
+
+1. It gets the compiled code 
+2. It deploys your compiled code onto the chain of your choice ( goerli in my case )
+3. It waits on the contract to be deployed 
+4. It waits about 10 seconds for etherscan to index the new contract on the chain. and submits a request for verification. If this fails, then it repeats the process until it suceeds.
+
+> If you don't have any test eth on goerli, you can get some at https://goerlifaucet.com/
+
+
+```ts
+const { ethers } = require("hardhat");
+
+async function main() {
+  /*
+A ContractFactory in ethers.js is an abstraction used to deploy new smart contracts,
+so nftContract here is a factory for instances of our GameItem contract.
+*/
+  const calculatorContract = await ethers.getContractFactory("Calculator");
+
+  // here we deploy the contract
+  const deployedCalculatorContract = await calculatorContract.deploy();
+
+  // wait for the contract to deploy
+  await deployedCalculatorContract.deployed();
+
+  // print the address of the deployed contract
+  console.log("Contract Address:", deployedCalculatorContract.address);
+
+  console.log(".....Starting Verfication")
+  let verified = false;
+  let timeout = 10000;
+
+  while (!verified) {
+    try {
+      await hre.run("verify:verify", {
+        address: deployedCalculatorContract.address,
+        constructorArguments: [],
+      });
+      verified = true;
+    } catch (error) {
+      console.log(`------FAILED TO VERIFY CONTRACT, PENDING RETRY, waiting for ${timeout} before trying again`)
+      await sleep(timeout)
+    }
+  }
+
+
+
+  // Verify the contract after deploying
+
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Call the main function and catch if there is any error
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+```
+
+It should in turn generate something like this.
+
+```
+Contract Address: 0x0b8a1019a6E130cc1a8Ad211CA01e02D39fa92d8
+.....Starting Verfication
+Nothing to compile
+No need to generate any newer typings.
+------FAILED TO VERIFY CONTRACT, PENDING RETRY, waiting for 10000 before trying again
+Generating typings for: 1 artifacts in dir: typechain-types for target: ethers-v5
+Successfully generated 6 typings!
+Compiled 1 Solidity file successfully
+------FAILED TO VERIFY CONTRACT, PENDING RETRY, waiting for 10000 before trying again
+Nothing to compile
+No need to generate any newer typings.
+Successfully submitted source code for contract
+contracts/Calculator.sol:Calculator at 0x0b8a1019a6E130cc1a8Ad211CA01e02D39fa92d8
+for verification on the block explorer. Waiting for verification result...
+
+Successfully verified contract Calculator on Etherscan.
+https://goerli.etherscan.io/address/0x0b8a1019a6E130cc1a8Ad211CA01e02D39fa92d8#code
+```
+
+
+
+> You can check out the deployed contract here : https://goerli.etherscan.io/address/0x0b8a1019a6E130cc1a8Ad211CA01e02D39fa92d8#code
+
+and that's the first smart contract we've deployed! Stay tuned for the next article where we link it to a front-end to interact with.
