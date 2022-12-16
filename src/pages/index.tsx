@@ -24,14 +24,14 @@ const Home: NextPage = () => {
                 src="/ProfilePic.jpeg"
                 width={200}
                 height={200}
-                className="aspect-square rotate-3 rounded-2xl bg-zinc-100 object-cover dark:bg-zinc-800"
+                className="aspect-square rotate-3 rounded-2xl bg-zinc-100 object-cover "
               />
             </div>
             <div className="col-span-3">
-              <h1 className="text-4xl font-bold tracking-tight text-zinc-800 dark:text-zinc-100 sm:text-5xl">
+              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
                 I&apos;m BowTiedHamachi
               </h1>
-              <div className="mt-6 space-y-7 text-base text-zinc-600 dark:text-zinc-400">
+              <div className="mt-6 space-y-7 text-base  ">
                 <p>
                   I&apos;m an anon dev that does full-stack development. I’m a
                   software engineer in real-life and in my spare time I enjoy
