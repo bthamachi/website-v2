@@ -9,7 +9,7 @@ type NavLinkProps = {
 
 const NavLink = ({ name, href }: NavLinkProps) => {
   const isActive = useRouter().pathname == href;
-  console.log(name, isActive);
+
   return (
     <li
       className={joinClassNames(
