@@ -1,20 +1,19 @@
 import Image from "next/image";
 import DarkModeButton from "./DarkModeButton";
-import NavLink from "./NavLink";
+import HeaderNavLinks from "./HeaderNavLinks";
 
 const DesktopHeader = () => {
   return (
-    <ul className="hidden lg:flex lg:w-full lg:items-center lg:justify-between">
+    <ul className="hidden md:flex md:w-full md:items-center md:justify-between">
       <Image
         src="/ProfilePic.jpeg"
         width={60}
         height={60}
         className="aspect-square rotate-3 rounded-full bg-zinc-100 object-cover "
       />
-      <NavLink name="Home" href="/" />
-      <NavLink name="Projects" href="/projects" />
-      <NavLink name="Articles" href="/articles" />
-      <NavLink name="Work-Log" href="/work-log" />
+      <div className="text-md flex rounded-full bg-white/90 px-3 text-sm font-medium text-zinc-800 shadow-lg shadow-zinc-800/5 ring-1 ring-zinc-900/5 backdrop-blur dark:bg-zinc-800/90 dark:text-zinc-200 dark:ring-white/10">
+        <HeaderNavLinks />
+      </div>
       <DarkModeButton />
     </ul>
   );
