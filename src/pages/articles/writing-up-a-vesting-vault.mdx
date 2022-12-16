@@ -1,44 +1,45 @@
-import { ArticleLayout } from '@/components/ArticleLayout'
+import { Layout } from "@/components/Layout";
 
 export const meta = {
-  author: 'Bow Tied Hamachi',
-  date: '2022-10-09',
-  title: 'Writing Up A Vesting Vault',
-  description:
-    'What is Vesting and how can we implement it in Solidity',
-}
+  author: "Bow Tied Hamachi",
+  date: "2022-10-09",
+  title: "Writing Up A Vesting Vault",
+  description: "What is Vesting and how can we implement it in Solidity",
+};
 
-export default (props) => <ArticleLayout meta={meta} {...props} />
+export default (props) => <Layout meta={meta} {...props} />;
 
 ## Introduction
 
-> All code for this can be found at [the github repo](https://github.com/bthamachi/Smart-Contract-Vault). If you're new to unit testing, I recommend reading [this short introduction](https://bowtiedhamachi.substack.com/p/unit-testing) I wrote sometime back 
+> All code for this can be found at [the github repo](https://github.com/bthamachi/Smart-Contract-Vault). If you're new to unit testing, I recommend reading [this short introduction](https://bowtiedhamachi.substack.com/p/unit-testing) I wrote sometime back
 
 ### What is a vesting vault and why do we need one?
 
 In crypto terms, a Vesting vault is simply a smart contract that locks up some eth or some ERC-20 tokens for a set amount of time before a designated user can claim them. This is a process known as "Vesting".
 
-<img src = "https://user-images.githubusercontent.com/111180211/194796226-4b64f06d-3198-45e3-a2a6-5d207a987d92.png" />
+<img src="https://user-images.githubusercontent.com/111180211/194796226-4b64f06d-3198-45e3-a2a6-5d207a987d92.png" />
 
-There are a few different ways to implement vesting 
+There are a few different ways to implement vesting
 
-1. Graded Vesting : The individual is given a set amount of tokens/stock over time. This can either be done in equal portions or with larger chunks given at the tail-end of this period. 
+1. Graded Vesting : The individual is given a set amount of tokens/stock over time. This can either be done in equal portions or with larger chunks given at the tail-end of this period.
 
 2. Cliff Vesting : No tokens or eth are given for an initial period known as a "cliff". Once this "cliff" period is over, the user's tokens or eth are then gradually allocated to him
 
 We normally use a vesting vault so that users do not immediately dump their tokens on the open market. This would result in a sharp decline in the price of the token that is being vested and effectively destroy a large chunk of the capital of the project.
 
-## Specification 
+## Specification
 
 > Original Specification can be found here at [BowTiedPickle's tweet](https://twitter.com/BowTiedPickle/status/1577320682395951109).
 
 The main requirements were
+
 - a single beneficiary, set on construction
 - a one-time function to fund the vault with ERC-20 tokens and an unlock time set in the future
 - only the owner can call fund()
 - beneficiary can only withdraw after unlock time.
 
 with additional bonus requirements of
+
 - Implementing a maximum vesting duration
 - Allowing users to vest eth
 - Implementing a vesting curve (Linear, Linear with cliff)
@@ -46,29 +47,28 @@ with additional bonus requirements of
 I personally thought that implementing a complicated vesting curve would add additional complexity to this so my final choice of specifications left out the vesting curve and maximum vesting duration. In conclusion, our contract will have a few public functions
 
 1. A constructor() that will take in a beneficiary address
-2. a fund() method that can be called by the owner of the contract 
+2. a fund() method that can be called by the owner of the contract
 3. a withdraw() method that will be used by the benficiary to withdraw his money
 4. a blacklistBenificiary() method that can be used by the owner to kill the vesting process as a fail safe.
 
-> All of these methods will be public so we need to implement some safeguards in order to make sure that we have the right access controls. 
+> All of these methods will be public so we need to implement some safeguards in order to make sure that we have the right access controls.
 
-
-## Unit Testing 
+## Unit Testing
 
 ### Configuration
 
-We can start by creating a new Hardhat project with 
+We can start by creating a new Hardhat project with
 
 > Make sure to choose a typescript project!
 
 ```
 npm init -y
 npm install --save hardhat
-npx hardhat 
+npx hardhat
 npm install --save npm typechain @typechain/ethers-v5
 ```
 
-We also need to configure out `hardhat.config.ts` file so that it works nicely with typechain 
+We also need to configure out `hardhat.config.ts` file so that it works nicely with typechain
 
 > Typechain is useful because it allows us to generate types for our contract. This makes testing significantly easier to work with!
 
@@ -85,92 +85,97 @@ const config: HardhatUserConfig = {
 export default config;
 ```
 
-Let's start by scaffolding out a quick test file for our unit testing 
+Let's start by scaffolding out a quick test file for our unit testing
 
 ```js
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { HamachiToken, HamachiToken__factory, VestingVault, VestingVault__factory } from "../typechain-types";
+import {
+  HamachiToken,
+  HamachiToken__factory,
+  VestingVault,
+  VestingVault__factory,
+} from "../typechain-types";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber } from "ethers";
 
-const totalSupply = (10 ** 9).toString()
+const totalSupply = (10 ** 9).toString();
 
 describe("Vesting Vault", function () {
+  let HamachiToken: HamachiToken;
+  let VestingVault: VestingVault;
+  let owner: SignerWithAddress;
+  let addr1: SignerWithAddress;
+  let addr2: SignerWithAddress;
+  let addrs: SignerWithAddress[];
 
-    let HamachiToken: HamachiToken;
-    let VestingVault: VestingVault;
-    let owner: SignerWithAddress;
-    let addr1: SignerWithAddress;
-    let addr2: SignerWithAddress
-    let addrs: SignerWithAddress[];
+  let beneficiary: SignerWithAddress;
 
-    let beneficiary: SignerWithAddress;
+  beforeEach(async function () {
+    // Provision Addresses first
+    [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
 
-    beforeEach(async function () {
+    // Create Contract Interfaces
+    const HamachiTokenFactory: HamachiToken__factory =
+      await ethers.getContractFactory("HamachiToken", owner);
+    const VestingVaultFactory: VestingVault__factory =
+      await ethers.getContractFactory("VestingVault", owner);
 
-        // Provision Addresses first
-        [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
+    //Set Constants
 
+    beneficiary = addr1;
 
+    //Deploy Contracts
+    HamachiToken = await HamachiTokenFactory.deploy(
+      ethers.utils.parseEther(totalSupply)
+    );
+    VestingVault = await VestingVaultFactory.deploy(beneficiary.address);
+  });
 
-        // Create Contract Interfaces
-        const HamachiTokenFactory: HamachiToken__factory = await ethers.getContractFactory("HamachiToken", owner)
-        const VestingVaultFactory: VestingVault__factory = await ethers.getContractFactory("VestingVault", owner);
-
-        //Set Constants
-
-        beneficiary = addr1
-
-        //Deploy Contracts
-        HamachiToken = await HamachiTokenFactory.deploy(ethers.utils.parseEther(totalSupply))
-        VestingVault = await VestingVaultFactory.deploy(beneficiary.address)
-    });
-
-    //Other tests go here
-
-})
+  //Other tests go here
+});
 ```
 
 ### Writing Our Tests
 
-Let's start by breaking down the overall functionality of the smart contract into three main sections - deployment, funding, before unlock time and withdrawals. 
-
+Let's start by breaking down the overall functionality of the smart contract into three main sections - deployment, funding, before unlock time and withdrawals.
 
 ### Deployment
 
-1. A user should be able to deploy this contract and set a beneficiary. We should provide some variables that show that 
-    - Wallet has not been funded
-    - Beneficiary has been set
+1. A user should be able to deploy this contract and set a beneficiary. We should provide some variables that show that
+
+   - Wallet has not been funded
+   - Beneficiary has been set
 
 2. Owner is set properly and should be owned by the person who deployed the contract.
 
-
-This corresponds to the following unit tests 
+This corresponds to the following unit tests
 
 ```ts
 describe("Deployment", function () {
-        it("should be initialised with a set beneficiary", async function () {
-            expect(await VestingVault.beneficiary()).to.equal(beneficiary.address)
-            expect(await VestingVault.funded()).to.equal(false)
-        })
+  it("should be initialised with a set beneficiary", async function () {
+    expect(await VestingVault.beneficiary()).to.equal(beneficiary.address);
+    expect(await VestingVault.funded()).to.equal(false);
+  });
 
-        it("should throw an error when withdraw is called when initialised", async function () {
-            await expect(VestingVault.withdraw()).to.be.revertedWith("Vesting Vault has not been funded, please try again later")
-        })
+  it("should throw an error when withdraw is called when initialised", async function () {
+    await expect(VestingVault.withdraw()).to.be.revertedWith(
+      "Vesting Vault has not been funded, please try again later"
+    );
+  });
 
-        it("should be owned by the person who deployed the contract", async function () {
-            expect(await VestingVault.owner()).to.be.equal(owner.address)
-    })
-})
+  it("should be owned by the person who deployed the contract", async function () {
+    expect(await VestingVault.owner()).to.be.equal(owner.address);
+  });
+});
 ```
 
-### Funding 
+### Funding
 
 When it comes to funding, there are three things we need to check
 
-1. We are accurately restricting access to the fund() function to the owner 
+1. We are accurately restricting access to the fund() function to the owner
 2. Valid inputs are being passed to our fund() function
 3. We can fund our function with an ERC-20 token and/or eth
 
@@ -215,155 +220,235 @@ describe("Funding", function () {
         })
 ```
 
-
-### Withdrawal 
+### Withdrawal
 
 When looking at the withdrawal functions, we want to make sure that we implement a few logic checks
 
 1. Only the beneficiary should be able to withdraw the money, If the function is called before the time is up, an error should be thrown.
-2. All of the eth and the ERC-20 token value should be deposited in the benficiary's wallet. 
-3. The owner should be able to cancel the vesting proccess. If this is done, then all the eth should be withdrawn from the contract and transfered to the owner. The benficiary should be prohibited from withdrawing the money thereafter. 
+2. All of the eth and the ERC-20 token value should be deposited in the benficiary's wallet.
+3. The owner should be able to cancel the vesting proccess. If this is done, then all the eth should be withdrawn from the contract and transfered to the owner. The benficiary should be prohibited from withdrawing the money thereafter.
 
-This corresponds to the unit tests below 
+This corresponds to the unit tests below
 
 ```js
 describe("Withdrawal for pure ERC-20 Withdrawals", function () {
-        it("should be disabled once the user blacklisted", async function () {
-            const vestingDuration = (10 ** 4);
-            const fundedAmount = 1000;
-            await HamachiToken.approve(VestingVault.address, fundedAmount)
-            await VestingVault.fund(vestingDuration, HamachiToken.address, fundedAmount)
-            await VestingVault.blacklistBeneficiary();
-            await expect(VestingVault.connect(beneficiary).withdraw()).to.be.revertedWith("Owner has prematurely cancelled vesting and prohibited beneficiary from recieving funds")
-        })
+  it("should be disabled once the user blacklisted", async function () {
+    const vestingDuration = 10 ** 4;
+    const fundedAmount = 1000;
+    await HamachiToken.approve(VestingVault.address, fundedAmount);
+    await VestingVault.fund(
+      vestingDuration,
+      HamachiToken.address,
+      fundedAmount
+    );
+    await VestingVault.blacklistBeneficiary();
+    await expect(
+      VestingVault.connect(beneficiary).withdraw()
+    ).to.be.revertedWith(
+      "Owner has prematurely cancelled vesting and prohibited beneficiary from recieving funds"
+    );
+  });
 
-        it("should not able to call withdrawal before the vault is funded", async function () {
-            await expect(VestingVault.withdraw()).to.be.revertedWith("Vesting Vault has not been funded, please try again later")
-        })
+  it("should not able to call withdrawal before the vault is funded", async function () {
+    await expect(VestingVault.withdraw()).to.be.revertedWith(
+      "Vesting Vault has not been funded, please try again later"
+    );
+  });
 
-        it("should only allow the beneficiary to call the contract", async function () {
-            const vestingDuration = (10 ** 4);
-            const fundedAmount = 1000;
-            await HamachiToken.approve(VestingVault.address, fundedAmount)
-            await VestingVault.fund(vestingDuration, HamachiToken.address, fundedAmount)
+  it("should only allow the beneficiary to call the contract", async function () {
+    const vestingDuration = 10 ** 4;
+    const fundedAmount = 1000;
+    await HamachiToken.approve(VestingVault.address, fundedAmount);
+    await VestingVault.fund(
+      vestingDuration,
+      HamachiToken.address,
+      fundedAmount
+    );
 
-            await expect(VestingVault.connect(addr2).withdraw()).to.be.revertedWith("Only beneficiary can withdraw money from this contract")
-        })
-        it("Should prohibit beneficiary from being able to call withdrawal if not yet till unlock time", async function () {
-            const vestingDuration = (10 ** 4);
-            const fundedAmount = 1000;
-            await HamachiToken.approve(VestingVault.address, fundedAmount)
-            await VestingVault.fund(vestingDuration, HamachiToken.address, fundedAmount)
+    await expect(VestingVault.connect(addr2).withdraw()).to.be.revertedWith(
+      "Only beneficiary can withdraw money from this contract"
+    );
+  });
+  it("Should prohibit beneficiary from being able to call withdrawal if not yet till unlock time", async function () {
+    const vestingDuration = 10 ** 4;
+    const fundedAmount = 1000;
+    await HamachiToken.approve(VestingVault.address, fundedAmount);
+    await VestingVault.fund(
+      vestingDuration,
+      HamachiToken.address,
+      fundedAmount
+    );
 
-            await expect(VestingVault.connect(beneficiary).withdraw()).to.be.revertedWith("Vesting duration has not been completed, please try again later")
-        })
+    await expect(
+      VestingVault.connect(beneficiary).withdraw()
+    ).to.be.revertedWith(
+      "Vesting duration has not been completed, please try again later"
+    );
+  });
 
-        it("should prohibit beneficiary from being able to call withdrawl if the owner of the contract has blacklisted the beneficiary", async function () {
-            const vestingDuration = (10 ** 4);
-            const fundedAmount = 1000;
-            await HamachiToken.approve(VestingVault.address, fundedAmount)
-            await VestingVault.fund(vestingDuration, HamachiToken.address, fundedAmount)
+  it("should prohibit beneficiary from being able to call withdrawl if the owner of the contract has blacklisted the beneficiary", async function () {
+    const vestingDuration = 10 ** 4;
+    const fundedAmount = 1000;
+    await HamachiToken.approve(VestingVault.address, fundedAmount);
+    await VestingVault.fund(
+      vestingDuration,
+      HamachiToken.address,
+      fundedAmount
+    );
 
+    // Check that Owner gets back all his original ERC20 tokens
+    expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(
+      fundedAmount
+    );
+    await VestingVault.blacklistBeneficiary();
+    expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0);
+    expect(await HamachiToken.balanceOf(owner.address)).to.be.equal(
+      ethers.utils.parseEther(totalSupply)
+    );
 
-            // Check that Owner gets back all his original ERC20 tokens
-            expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(fundedAmount)
-            await VestingVault.blacklistBeneficiary()
-            expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0)
-            expect(await HamachiToken.balanceOf(owner.address)).to.be.equal(ethers.utils.parseEther(totalSupply))
+    // Ensure that beneficiary is unable to call
+    await expect(
+      VestingVault.connect(beneficiary).withdraw()
+    ).to.be.revertedWith(
+      "Owner has prematurely cancelled vesting and prohibited beneficiary from recieving funds"
+    );
+  });
 
-            // Ensure that beneficiary is unable to call
-            await expect(VestingVault.connect(beneficiary).withdraw()).to.be.revertedWith("Owner has prematurely cancelled vesting and prohibited beneficiary from recieving funds")
+  it("should only allow beneficiary to call withdrawal once. Subsequent attempts should throw an error", async function () {
+    const vestingDuration = 10 ** 4;
+    const fundedAmount = 1000;
+    await HamachiToken.approve(VestingVault.address, fundedAmount);
+    await VestingVault.fund(
+      vestingDuration,
+      HamachiToken.address,
+      fundedAmount
+    );
 
+    await time.increase(vestingDuration);
+    await VestingVault.connect(beneficiary).withdraw();
+    expect(await HamachiToken.balanceOf(beneficiary.address)).to.be.equal(
+      fundedAmount
+    );
+    expect(
+      expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0)
+    );
 
-        })
+    await expect(
+      VestingVault.connect(beneficiary).withdraw()
+    ).to.be.revertedWith("Vault's vested tokens have already been redeemed");
+  });
 
-        it("should only allow beneficiary to call withdrawal once. Subsequent attempts should throw an error", async function () {
-            const vestingDuration = (10 ** 4);
-            const fundedAmount = 1000;
-            await HamachiToken.approve(VestingVault.address, fundedAmount)
-            await VestingVault.fund(vestingDuration, HamachiToken.address, fundedAmount)
+  it("should allow beneficiary to call withdrawl and call his ERC-20 if the exact amount of unlock time has passed", async function () {
+    const vestingDuration = 10 ** 4;
+    const fundedAmount = 1000;
+    await HamachiToken.approve(VestingVault.address, fundedAmount);
+    await VestingVault.fund(
+      vestingDuration,
+      HamachiToken.address,
+      fundedAmount
+    );
 
-            await time.increase(vestingDuration);
-            await VestingVault.connect(beneficiary).withdraw()
-            expect(await HamachiToken.balanceOf(beneficiary.address)).to.be.equal(fundedAmount);
-            expect(expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0));
+    await time.increase(vestingDuration);
+    await VestingVault.connect(beneficiary).withdraw();
+    expect(await HamachiToken.balanceOf(beneficiary.address)).to.be.equal(
+      fundedAmount
+    );
+    expect(
+      expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0)
+    );
+  });
+  it("should allow beneficiary to call withdrawl and recieve his ERC-20 if more time than the specified unlock time has passed", async function () {
+    const vestingDuration = 10 ** 4;
+    const fundedAmount = 1000;
+    await HamachiToken.approve(VestingVault.address, fundedAmount);
+    await VestingVault.fund(
+      vestingDuration,
+      HamachiToken.address,
+      fundedAmount
+    );
 
-            await expect(VestingVault.connect(beneficiary).withdraw()).to.be.revertedWith(
-                "Vault's vested tokens have already been redeemed"
-            )
-        })
+    await time.increase(vestingDuration * 2);
+    await VestingVault.connect(beneficiary).withdraw();
+    expect(await HamachiToken.balanceOf(beneficiary.address)).to.be.equal(
+      fundedAmount
+    );
+    expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0);
+  });
+});
 
+describe("Withdrawals tests for Eth AND Erc-20", async function () {
+  it("should refund the owner all his eth and erc20 tokens in the event that blacklist is called before unlock time has passed", async function () {
+    const vestingDuration = 10 ** 4;
+    const fundedAmount = 1000;
+    const transferedAmountOfEth = ethers.utils.parseEther("1");
 
-        it("should allow beneficiary to call withdrawl and call his ERC-20 if the exact amount of unlock time has passed", async function () {
-            const vestingDuration = (10 ** 4);
-            const fundedAmount = 1000;
-            await HamachiToken.approve(VestingVault.address, fundedAmount)
-            await VestingVault.fund(vestingDuration, HamachiToken.address, fundedAmount)
+    await HamachiToken.approve(VestingVault.address, fundedAmount);
+    await VestingVault.fund(
+      vestingDuration,
+      HamachiToken.address,
+      fundedAmount,
+      { from: owner.address, value: transferedAmountOfEth }
+    );
+    const originalAmount = await owner.getBalance();
+    await expect(
+      await VestingVault.blacklistBeneficiary()
+    ).to.changeEtherBalance(owner.address, transferedAmountOfEth);
+    //Owner should get his eth and erc20 tokens back
 
-            await time.increase(vestingDuration);
-            await VestingVault.connect(beneficiary).withdraw()
-            expect(await HamachiToken.balanceOf(beneficiary.address)).to.be.equal(fundedAmount);
-            expect(expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0));
-        })
-        it("should allow beneficiary to call withdrawl and recieve his ERC-20 if more time than the specified unlock time has passed", async function () {
-            const vestingDuration = (10 ** 4);
-            const fundedAmount = 1000;
-            await HamachiToken.approve(VestingVault.address, fundedAmount)
-            await VestingVault.fund(vestingDuration, HamachiToken.address, fundedAmount)
+    expect(
+      await VestingVault.provider.getBalance(VestingVault.address)
+    ).to.be.equal(0);
+    expect(await HamachiToken.balanceOf(owner.address)).to.be.equal(
+      ethers.utils.parseEther(totalSupply)
+    );
+    expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0);
 
-            await time.increase(vestingDuration * 2);
-            await VestingVault.connect(beneficiary).withdraw()
-            expect(await HamachiToken.balanceOf(beneficiary.address)).to.be.equal(fundedAmount);
-            expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0);
-        })
+    // //Beneficiary should not be able to call withdrawal
+    await expect(
+      VestingVault.connect(beneficiary).withdraw()
+    ).to.be.revertedWith(
+      "Owner has prematurely cancelled vesting and prohibited beneficiary from recieving funds"
+    );
+  });
 
-    })
+  it("should allow beneficiary to call withdrawal and recieve his ERC-20 tokens and ETH once unlock time has passed", async function () {
+    const vestingDuration = 10 ** 4;
+    const fundedAmount = 1000;
+    const transferedAmountOfEth = ethers.utils.parseEther("1");
+    const originalRecipientBalance = await beneficiary.provider?.getBalance(
+      beneficiary.address
+    );
 
+    await HamachiToken.approve(VestingVault.address, fundedAmount);
+    await VestingVault.fund(
+      vestingDuration,
+      HamachiToken.address,
+      fundedAmount,
+      { from: owner.address, value: transferedAmountOfEth }
+    );
+    expect(
+      await VestingVault.provider.getBalance(VestingVault.address)
+    ).to.be.equal(transferedAmountOfEth);
 
-    describe("Withdrawals tests for Eth AND Erc-20", async function () {
-        it("should refund the owner all his eth and erc20 tokens in the event that blacklist is called before unlock time has passed", async function () {
-            const vestingDuration = (10 ** 4);
-            const fundedAmount = 1000;
-            const transferedAmountOfEth = ethers.utils.parseEther("1");
+    await time.increase(vestingDuration);
+    await expect(
+      await VestingVault.connect(beneficiary).withdraw()
+    ).to.changeEtherBalance(beneficiary.address, transferedAmountOfEth);
 
-
-            await HamachiToken.approve(VestingVault.address, fundedAmount)
-            await VestingVault.fund(vestingDuration, HamachiToken.address, fundedAmount, { from: owner.address, value: transferedAmountOfEth })
-            const originalAmount = await owner.getBalance()
-            await expect(await VestingVault.blacklistBeneficiary()).to.changeEtherBalance(owner.address, transferedAmountOfEth)
-            //Owner should get his eth and erc20 tokens back
-
-            expect(await VestingVault.provider.getBalance(VestingVault.address)).to.be.equal(0);
-            expect(await HamachiToken.balanceOf(owner.address)).to.be.equal(ethers.utils.parseEther(totalSupply));
-            expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0);
-
-            // //Beneficiary should not be able to call withdrawal
-            await expect(VestingVault.connect(beneficiary).withdraw()).to.be.revertedWith("Owner has prematurely cancelled vesting and prohibited beneficiary from recieving funds")
-        })
-
-        it("should allow beneficiary to call withdrawal and recieve his ERC-20 tokens and ETH once unlock time has passed", async function () {
-            const vestingDuration = (10 ** 4);
-            const fundedAmount = 1000;
-            const transferedAmountOfEth = ethers.utils.parseEther("1");
-            const originalRecipientBalance = await beneficiary.provider?.getBalance(beneficiary.address)
-
-            await HamachiToken.approve(VestingVault.address, fundedAmount);
-            await VestingVault.fund(vestingDuration, HamachiToken.address, fundedAmount, { from: owner.address, value: transferedAmountOfEth });
-            expect(await VestingVault.provider.getBalance(VestingVault.address)).to.be.equal(transferedAmountOfEth)
-
-            await time.increase(vestingDuration);
-            await expect(await VestingVault.connect(beneficiary).withdraw()).to.changeEtherBalance(beneficiary.address, transferedAmountOfEth)
-
-            expect(await HamachiToken.balanceOf(beneficiary.address)).to.be.equal(fundedAmount);
-            expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0);
-            expect(await VestingVault.provider.getBalance(VestingVault.address)).to.be.equal(0);
-        })
-    })
+    expect(await HamachiToken.balanceOf(beneficiary.address)).to.be.equal(
+      fundedAmount
+    );
+    expect(await HamachiToken.balanceOf(VestingVault.address)).to.be.equal(0);
+    expect(
+      await VestingVault.provider.getBalance(VestingVault.address)
+    ).to.be.equal(0);
+  });
+});
 ```
 
 ## Smart Contract
 
-Let's now scaffold out a quick smart contract with the functions we talked about earlier 
+Let's now scaffold out a quick smart contract with the functions we talked about earlier
 
 ```sol
 //SPDX-License-Identifier: MIT
@@ -386,7 +471,7 @@ contract VestingVault is Ownable {
     // Constructor //
     /////////////////
     constructor(address _beneficiary) {
-        
+
     }
 
     /////////////////
@@ -397,40 +482,40 @@ contract VestingVault is Ownable {
         address ERC20Token,
         uint256 _tokenFunding
     ) public payable onlyOwner {
-       
+
     }
 
 
     function withdraw() public {
-        
+
     }
 }
 
 ```
 
-Let's point out a few things here that we've declared 
+Let's point out a few things here that we've declared
 
-1. We've imported in the OpenZeppelin `Ownable` contract. This allows for us to get access to two things - the onlyOwner modifier and the a _owner variable without doing anything. These are automatically set to the account holder that is deploying the contract 
+1. We've imported in the OpenZeppelin `Ownable` contract. This allows for us to get access to two things - the onlyOwner modifier and the a \_owner variable without doing anything. These are automatically set to the account holder that is deploying the contract
 
 2. We've declared our main functiosn - fund, withdraw,blacklist and the constructor with function signatures. Note that these are `public` by default so they can be called by other users or contracts
 
-### Constructor 
+### Constructor
 
-The constructor is simple enough, all we need is to declare a generic constructor that takes in an address which we can then set to the local beneficiary value 
+The constructor is simple enough, all we need is to declare a generic constructor that takes in an address which we can then set to the local beneficiary value
 
 ```
 constructor(address _beneficiary) {
-    beneficiary = _beneficiary;        
+    beneficiary = _beneficiary;
 }
 ```
 
-> We've used `_beneficiary` to indicate the private value that is being passed into the function. This is a common pattern used by many solidity developers. 
+> We've used `_beneficiary` to indicate the private value that is being passed into the function. This is a common pattern used by many solidity developers.
 
-### fund() method 
+### fund() method
 
 Our fund method takes in a few parameters `_vestingDuration`, `ERC20Token`, `_tokenFunding` and is also payable. This means that users are able to send eth along with their transaction. We also use the `require` function to check that we have a valid vesting duration and a successful transfer of balance from the token.
 
-We also use the `IERC20` interface provided by `OpenZeppelin` to allow our smart contract to call the ERC20 token. 
+We also use the `IERC20` interface provided by `OpenZeppelin` to allow our smart contract to call the ERC20 token.
 
 ```
 function fund(
@@ -458,11 +543,11 @@ function fund(
     }
 ```
 
-### blacklistBeneficiary 
+### blacklistBeneficiary
 
-We now need a function as a kill switch in case the owner of the smart contract wants to kill a specific vesting proccess. Let's breakdown the flow 
+We now need a function as a kill switch in case the owner of the smart contract wants to kill a specific vesting proccess. Let's breakdown the flow
 
-1. We need to update our `vestingCancelled` boolean variable to true so that withdrawls are paused 
+1. We need to update our `vestingCancelled` boolean variable to true so that withdrawls are paused
 2. We need to withdraw all the Eth in the contract and transfer to the owner
 3. We need to withdraw all the ERC-20 tokens in the contract and transfer to the owner.
 
@@ -491,31 +576,31 @@ function withdrawERC20() internal returns (bool) {
 }
 ```
 
-> By doing a quick check to make sure that we have a non-zero balance, we save some gas money~ 
+> By doing a quick check to make sure that we have a non-zero balance, we save some gas money~
 
-Now let's write up our `blacklistBeneficiary` function 
+Now let's write up our `blacklistBeneficiary` function
 
 ```
 function blacklistBeneficiary() public onlyOwner {
     // Update vesting cancelled
     vestingCancelled = true;
 
-    // Withdraw contract money 
+    // Withdraw contract money
     withdrawEth();
     withdrawERC20();
 }
 ```
 
-Notice here that we essentially allow the Owner to do this multiple times in the event that they don't have enough gas. 
+Notice here that we essentially allow the Owner to do this multiple times in the event that they don't have enough gas.
 
 ### Withdrawal
 
-We need to check a few things before allowing the user to withdraw 
+We need to check a few things before allowing the user to withdraw
 
-1. The user needs to be the named beneficiary 
-2. The unlock time needs to have passed 
-3. The vault must have been funded 
-4. The Vested tokens must not have been redeemed 
+1. The user needs to be the named beneficiary
+2. The unlock time needs to have passed
+3. The vault must have been funded
+4. The Vested tokens must not have been redeemed
 
 ```
 function withdraw() public {
@@ -562,7 +647,7 @@ function withdrawCurrentBalance() internal returns (bool) {
 }
 ```
 
-With that, we have a valid smart contract! 
+With that, we have a valid smart contract!
 
 ```
 //SPDX-License-Identifier: MIT
@@ -684,7 +769,7 @@ contract VestingVault is Ownable {
 }
 ```
 
-and the relevant tests 
+and the relevant tests
 
 ```
 import { expect } from "chai";

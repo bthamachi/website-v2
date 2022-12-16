@@ -26,8 +26,6 @@ const SmartLink = ({ name, href, children }: SmartLinkProps) => {
     );
   }
 
-  console.log(isInternal, isNonRelativeLink);
-
   return (
     <a
       target={isInternal ? "" : "_blank"}

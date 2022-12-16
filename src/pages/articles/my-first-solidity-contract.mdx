@@ -1,15 +1,13 @@
-import { ArticleLayout } from '@/components/ArticleLayout'
+import { Layout } from "@/components/Layout";
 
 export const meta = {
-  author: 'Bow Tied Hamachi',
-  date: '2022-10-03',
-  title: 'My First Solidity Contract',
-  description:
-    'First attempts at building',
-}
+  author: "Bow Tied Hamachi",
+  date: "2022-10-03",
+  title: "My First Solidity Contract",
+  description: "First attempts at building",
+};
 
-export default (props) => <ArticleLayout meta={meta} {...props} />
-
+export default (props) => <Layout meta={meta} {...props} />;
 
 ## Introduction
 
@@ -19,7 +17,7 @@ After building a bunch of different projects following a tutorial online, I want
 - It needed to be covered by unit testing
 - It needed to be verified on etherscan
 
-so without further ado, I booted up a fresh copy of hardhat 
+so without further ado, I booted up a fresh copy of hardhat
 
 ```bash
 mkdir hardhat
@@ -52,7 +50,7 @@ contract Calculator {
 
 ### Testing
 
-I knew I wanted two basic functions - addition and subtraction and so I begun with some simple specifications in mind before writing my code. 
+I knew I wanted two basic functions - addition and subtraction and so I begun with some simple specifications in mind before writing my code.
 
 - Addition
   - Add two positive numbers
@@ -62,7 +60,6 @@ I knew I wanted two basic functions - addition and subtraction and so I begun wi
   - Find the difference between two positive numbers
   - Find the difference between two negative numbers
   - Find the difference between a positive and negative number
-
 
 It turns out you can do this pretty simply in hardhat by using `chai` and writing a small `.ts` file in the `/test` folder of your smart contract repository.
 
@@ -89,10 +86,10 @@ describe("Calculator Addition", function () {
 
     const CalculatorContract = await Calculator.deploy();
 
-    const a = getRandomNumber()
-    const b = getRandomNumber()
+    const a = getRandomNumber();
+    const b = getRandomNumber();
 
-    const expectedValue = a + b
+    const expectedValue = a + b;
 
     const actualValue = await CalculatorContract.add(a, b);
     expect(actualValue).to.equal(expectedValue);
@@ -108,7 +105,7 @@ describe("Calculator Addition", function () {
     const a = -1 * getRandomNumber();
     const b = -1 * getRandomNumber();
 
-    const expectedValue = a + b
+    const expectedValue = a + b;
 
     const actualValue = await CalculatorContract.add(a, b);
     expect(actualValue).to.equal(expectedValue);
@@ -132,7 +129,7 @@ describe("Calculator Addition", function () {
 });
 ```
 
-and here are the tests for minus 
+and here are the tests for minus
 
 ```
 describe("Calculator Minus", function () {
@@ -193,7 +190,7 @@ Compiled 1 Solidity file successfully
 
 ### Writing the Contract
 
-Now that we've defined the tests itself, we turn our attention back towards the initial function we defined. It's not a very complicated contract so we can simply rewrite `add` as 
+Now that we've defined the tests itself, we turn our attention back towards the initial function we defined. It's not a very complicated contract so we can simply rewrite `add` as
 
 ```sol
 function add(int256 a, int256 b) public pure returns (int256) {
@@ -213,7 +210,7 @@ function add(int256 a, int256 b) public pure returns (int256) {
 
 > Answer : That's because we want to support the calculator returning values that are negative and doing calculations with negative values.
 
-and we can then modify our `minus` function to get 
+and we can then modify our `minus` function to get
 
 ```sol
 function minus(int256 a, int256 b) public pure returns (int256) {
@@ -248,14 +245,13 @@ and now we have a working contract.
 
 Now we move on to deployment. We have a few things here that we need to do
 
-1. Compile our smart contract 
+1. Compile our smart contract
 2. Deploy our smart contract ( I've chosen the goerli testnet in this case )
-3. Verify our smart contract 
-
+3. Verify our smart contract
 
 > Verification of a smart contract is simply submitting it to Etherscan/block explorer of the network to ensure that the compiled code deployed on-chain matches the code you've submitted for verification. This allows people to see your source code and verify you've not done any malicious actions.
 
-### Configuring your actions 
+### Configuring your actions
 
 First, we need to install a few packages
 
@@ -287,22 +283,21 @@ module.exports = {
 };
 ```
 
-and create a corresponding `.env` file with the following values 
+and create a corresponding `.env` file with the following values
 
 ```
 API_URL=
 PRIVATE_KEY=
-ETHERSCAN_KEY = 
+ETHERSCAN_KEY =
 ```
 
 - API_URL : You need a http node to access a chain, this can be through services such as Alchemy or Quicknode.
 - PRIVATE_KEY : You can export this from Metamask
 - ETHERSCAN_KEY : I use this since I'm deploying to goerli and you can get one at https://etherscan.io/.
 
+### Writing up a deploy file
 
-### Writing up a deploy file 
-
-Just use the following deploy file to auto-deploy and verify. Mine is called `deploy.ts`. You can run it with 
+Just use the following deploy file to auto-deploy and verify. Mine is called `deploy.ts`. You can run it with
 
 ```
 npx hardhat run scripts/deploy.ts --network goerli
@@ -310,13 +305,12 @@ npx hardhat run scripts/deploy.ts --network goerli
 
 It does a few things (in order)
 
-1. It gets the compiled code 
+1. It gets the compiled code
 2. It deploys your compiled code onto the chain of your choice ( goerli in my case )
-3. It waits on the contract to be deployed 
+3. It waits on the contract to be deployed
 4. It waits about 10 seconds for etherscan to index the new contract on the chain. and submits a request for verification. If this fails, then it repeats the process until it suceeds.
 
 > If you don't have any test eth on goerli, you can get some at https://goerlifaucet.com/
-
 
 ```ts
 const { ethers } = require("hardhat");
@@ -337,7 +331,7 @@ so nftContract here is a factory for instances of our GameItem contract.
   // print the address of the deployed contract
   console.log("Contract Address:", deployedCalculatorContract.address);
 
-  console.log(".....Starting Verfication")
+  console.log(".....Starting Verfication");
   let verified = false;
   let timeout = 10000;
 
@@ -349,15 +343,14 @@ so nftContract here is a factory for instances of our GameItem contract.
       });
       verified = true;
     } catch (error) {
-      console.log(`------FAILED TO VERIFY CONTRACT, PENDING RETRY, waiting for ${timeout} before trying again`)
-      await sleep(timeout)
+      console.log(
+        `------FAILED TO VERIFY CONTRACT, PENDING RETRY, waiting for ${timeout} before trying again`
+      );
+      await sleep(timeout);
     }
   }
 
-
-
   // Verify the contract after deploying
-
 }
 
 function sleep(ms) {
@@ -394,8 +387,6 @@ for verification on the block explorer. Waiting for verification result...
 Successfully verified contract Calculator on Etherscan.
 https://goerli.etherscan.io/address/0x0b8a1019a6E130cc1a8Ad211CA01e02D39fa92d8#code
 ```
-
-
 
 > You can check out the deployed contract here : https://goerli.etherscan.io/address/0x0b8a1019a6E130cc1a8Ad211CA01e02D39fa92d8#code
 
