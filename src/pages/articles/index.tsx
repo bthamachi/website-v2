@@ -8,6 +8,8 @@ type PostIndexPageProps = {
   articleData: PostData[];
 };
 
+// TODO: Fix up an searchbar feature here
+
 export default function PostIndexPage({ articleData }: PostIndexPageProps) {
   return (
     <Layout>
