@@ -118,6 +118,7 @@ const WorkLogLayout = ({ children, meta }: WorkLogLayoutProps) => {
         </div>
 
         <h2>Worklog for {formatDateFromMetadata(meta)}</h2>
+        <p className="text-sm"> ---{meta.description}---</p>
         {children}
       </Layout>
     </>

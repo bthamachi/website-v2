@@ -10,15 +10,6 @@ const nextConfig = {
   experimental: {
     scrollRestoration: true,
   },
-  redirects: () => {
-    return [
-      {
-        source: "/work-log",
-        destination: "/work-log/2022-12-17",
-        permanent: true,
-      },
-    ];
-  },
 };
 
 const withMDX = nextMDX({
