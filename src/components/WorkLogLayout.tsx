@@ -3,7 +3,9 @@ import { shades } from "@/constants/worklog";
 import { joinClassNames } from "@/lib/css";
 import { formatDateFromMetadata, formatDateToDDMMYYformat } from "@/lib/date";
 import { Metadata as MetadataType } from "@/types/Post";
+import { ArrowPathIcon } from "@heroicons/react/24/solid";
 import { add, format } from "date-fns";
+import { useRouter } from "next/router";
 import { ReactNode, useState } from "react";
 import data from "../constants/worklog.json";
 import HeaderText from "./HeaderText";
@@ -20,6 +22,16 @@ const supportedYears = ["2022", "2023"];
 
 const WorkLogLayout = ({ children, meta }: WorkLogLayoutProps) => {
   const [selectedYear, setSelectedYear] = useState("2022");
+  const router = useRouter();
+
+  const shuffleToRandomDate = () => {
+    const currDate = router.pathname.split("/").at(2);
+    const dates = Object.keys(data).filter((key) => key !== currDate);
+
+    const chosenDate = Math.floor(Math.random() * dates.length);
+
+    router.push(`/work-log/${dates[chosenDate]}`);
+  };
 
   return (
     <>
@@ -78,7 +90,7 @@ const WorkLogLayout = ({ children, meta }: WorkLogLayoutProps) => {
               return <WorklogCell key={item} data={data} dateKey={item} />;
             })}
         </ul>
-        <div className="mx-auto ">
+        <div className="">
           <div className="flex items-center justify-center">
             <p className="mx-4">Low Impact</p>
             {shades.map((color) => {
@@ -95,6 +107,16 @@ const WorkLogLayout = ({ children, meta }: WorkLogLayoutProps) => {
             <p className="mx-4">High Impact</p>
           </div>
         </div>
+        <div className="flex items-center justify-center">
+          <button
+            onClick={() => shuffleToRandomDate()}
+            className="flex items-center rounded-md bg-blue-700 py-2 px-4 text-white"
+          >
+            <ArrowPathIcon className="mr-2 h-6 w-6" />
+            Shuffle
+          </button>
+        </div>
+
         <h2>Worklog for {formatDateFromMetadata(meta)}</h2>
         {children}
       </Layout>
