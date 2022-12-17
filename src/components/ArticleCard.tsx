@@ -1,4 +1,4 @@
-import { formatDate } from "@/lib/post";
+import { formatDateFromMetadata } from "@/lib/date";
 import { Metadata } from "@/types/Post";
 import { ChevronRightIcon } from "@heroicons/react/24/solid";
 import SmartLink from "./SmartLink";
@@ -15,7 +15,7 @@ const ArticleCard = ({ slug, meta }: ArticleCardProp) => {
         <div className="grid grid-cols-5">
           <div>
             <p className="text-md text-zinc-400 dark:text-zinc-500">
-              <>{formatDate(meta)}</>
+              <>{formatDateFromMetadata(meta)}</>
             </p>
           </div>
 

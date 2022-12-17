@@ -1,0 +1,9 @@
+{
+  "watch": ["src/pages/work-log"],
+  "ext": ".mdx",
+  "ignore": [],
+  "exec": "ts-node --files ./src/scripts/generateworklog.ts",
+  "execMap": {
+    "ts": "ts-node"
+  }
+}

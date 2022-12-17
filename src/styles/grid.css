@@ -1,0 +1,47 @@
+:root {
+  --square-gap: 2px;
+  --square-size: 8px;
+  --week-width: calc(var(--square-size) + var(--square-gap));
+}
+
+@media screen and (min-width: 720px) {
+  :root {
+    --square-gap: 5px;
+    --square-size: 14px;
+    --week-width: calc(var(--square-size) + var(--square-gap));
+  }
+}
+
+@media screen and (max-width: 720px) and (min-width: 420) {
+  :root {
+    --square-gap: 2px;
+    --square-size: 8px;
+    --week-width: calc(var(--square-size) + var(--square-gap));
+  }
+}
+
+@media screen and (max-width: 420px) {
+  :root {
+    --square-gap: 2px;
+    --square-size: 7px;
+    --week-width: calc(var(--square-size) + var(--square-gap));
+  }
+}
+
+.squares {
+  display: grid;
+  grid-gap: var(--square-gap);
+  grid-template-rows: repeat(10, var(--square-size));
+  grid-auto-flow: column;
+  grid-auto-columns: var(--square-size);
+}
+
+.square {
+  height: var(--square-size);
+  width: var(--square-size);
+}
+
+.months {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}

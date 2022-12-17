@@ -1,5 +1,5 @@
 import { AUTHOR } from "@/constants/seo";
-import { formatDate } from "@/lib/post";
+import { formatDateFromMetadata } from "@/lib/date";
 
 import { Metadata as MetaType } from "@/types/Post";
 import { ArrowLeftIcon } from "@heroicons/react/24/solid";
@@ -37,7 +37,7 @@ const ArticleLayout = ({ meta, children }: ArticleLayoutProps) => {
           className="flex items-center text-base text-zinc-400 dark:text-zinc-500"
         >
           <span className="h-4 w-0.5 rounded-full bg-zinc-200 dark:bg-zinc-500" />
-          <span className="ml-3">{formatDate(meta)}</span>
+          <span className="ml-3">{formatDateFromMetadata(meta)}</span>
         </time>
         {children}
       </Layout>
