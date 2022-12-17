@@ -3,7 +3,7 @@ import glob from "fast-glob";
 import * as path from "path";
 
 export const importWorkLog = async (articleFileName: string) => {
-  let { meta } = await import(`../pages/work-log/${articleFileName}`);
+  const { meta } = await import(`../pages/work-log/${articleFileName}`);
 
   const returnObject = {
     slug: articleFileName.replace(/(\/index)?\.mdx$/, ""),
@@ -13,10 +13,10 @@ export const importWorkLog = async (articleFileName: string) => {
 };
 
 export const getAllWorkLogs = async () => {
-  let worklogFilenames = await glob(["*.mdx", "*/index.mdx"], {
+  const worklogFilenames = await glob(["*.mdx", "*/index.mdx"], {
     cwd: path.join(process.cwd(), "src/pages/work-log"),
   });
 
-  let worklogs = await Promise.all(worklogFilenames.map(importWorkLog));
+  const worklogs = await Promise.all(worklogFilenames.map(importWorkLog));
   return worklogs;
 };

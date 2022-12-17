@@ -42,6 +42,7 @@ const WorkLogLayout = ({ children, meta }: WorkLogLayoutProps) => {
           {supportedYears.map((year) => {
             return (
               <span
+                key={year}
                 onClick={() => setSelectedYear(year)}
                 className={joinClassNames(
                   year === selectedYear ? "rounded-lg bg-gray-200 py-2" : "",
@@ -59,7 +60,9 @@ const WorkLogLayout = ({ children, meta }: WorkLogLayoutProps) => {
           {Array.from({ length: 12 }, () => 0)
             .map((_, idx) => idx)
             .map((month) => {
-              return <li>{format(new Date(2022, month, 6), "MMM")}</li>;
+              return (
+                <li key={month}> {format(new Date(2022, month, 6), "MMM")}</li>
+              );
             })}
         </ul>
 
@@ -72,7 +75,7 @@ const WorkLogLayout = ({ children, meta }: WorkLogLayoutProps) => {
               );
             })
             .map((item) => {
-              return <WorklogCell data={data} dateKey={item} />;
+              return <WorklogCell key={item} data={data} dateKey={item} />;
             })}
         </ul>
         <div className="mx-auto ">
@@ -81,6 +84,7 @@ const WorkLogLayout = ({ children, meta }: WorkLogLayoutProps) => {
             {shades.map((color) => {
               return (
                 <div
+                  key={color}
                   style={{
                     backgroundColor: color,
                   }}

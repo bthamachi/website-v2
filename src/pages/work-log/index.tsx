@@ -3,13 +3,10 @@ import { getAllWorkLogs } from "@/lib/worklog";
 import { MDXProvider } from "@mdx-js/react";
 import fs from "fs";
 
-const WorkLog = (props) => {
-  console.log(props);
+const WorkLog = () => {
   return (
     <MDXProvider>
-      <p>Test</p>
-
-      <main {...props} />
+      <main />
     </MDXProvider>
   );
 };

@@ -25,7 +25,7 @@ const ProjectCard = ({
       </ul>
       <div>
         {techStack.map((tech) => {
-          return <ProjectCardTagItem tagItemName={tech} />;
+          return <ProjectCardTagItem key={tech} tagItemName={tech} />;
         })}
       </div>
       <SmartLink name="Staking Contract Link" href={link}>

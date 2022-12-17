@@ -14,11 +14,11 @@ export const importArticle = async (articleFileName: string) => {
 };
 
 export const getAllArticles = async () => {
-  let articleFilenames = await glob(["*.mdx", "*/index.mdx"], {
+  const articleFilenames = await glob(["*.mdx", "*/index.mdx"], {
     cwd: path.join(process.cwd(), "src/pages/articles"),
   });
 
-  let articles = await Promise.all(articleFilenames.map(importArticle));
+  const articles = await Promise.all(articleFilenames.map(importArticle));
 
   return articles.sort(
     (a, b) => new Date(b.meta.date).getTime() - new Date(a.meta.date).getTime()
