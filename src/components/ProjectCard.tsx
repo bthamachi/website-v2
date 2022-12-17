@@ -1,5 +1,5 @@
 import { Project } from "@/types/Project";
-import { LinkIcon } from "@heroicons/react/24/solid";
+import { CodeBracketIcon, LinkIcon } from "@heroicons/react/24/solid";
 import ProjectCardListItem from "./ProjectCardListItem";
 import ProjectCardTagItem from "./ProjectCardTagItem";
 import SmartLink from "./SmartLink";
@@ -12,6 +12,7 @@ const ProjectCard = ({
   actionItems,
   techStack,
   link,
+  code,
 }: ProjectCardProps) => {
   return (
     <div className="px-2">
@@ -19,7 +20,7 @@ const ProjectCard = ({
       <p>{description}</p>
       <ul className="list-none">
         {actionItems.map((actionItem) => {
-          return <ProjectCardListItem itemText={actionItem} />;
+          return <ProjectCardListItem key={actionItem} itemText={actionItem} />;
         })}
       </ul>
       <div>
@@ -27,13 +28,16 @@ const ProjectCard = ({
           return <ProjectCardTagItem tagItemName={tech} />;
         })}
       </div>
-      <SmartLink
-        name="Staking Contract Link"
-        href="https://staking-contract-seven.vercel.app/"
-      >
+      <SmartLink name="Staking Contract Link" href={link}>
         <div className="flex items-center">
           <LinkIcon className="h-4 w-4" />
           <p className="ml-2 text-xs">{link}</p>
+        </div>
+      </SmartLink>
+      <SmartLink name="Staking Contract Link" href={code}>
+        <div className="-mt-6 flex items-center">
+          <CodeBracketIcon className="h-4 w-4" />
+          <p className="ml-2 text-xs">{code}</p>
         </div>
       </SmartLink>
     </div>

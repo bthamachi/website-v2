@@ -4,4 +4,5 @@ export type Project = {
   actionItems: string[];
   techStack: string[];
   link: string;
+  code: string;
 };

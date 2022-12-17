@@ -11,6 +11,7 @@ export const ProjectData: Project[] = [
       "cached events emitted by the contract using TheGraph",
     ],
     techStack: ["NextJS", "Solidity", "TheGraph"],
-    link: "staking-contract-seven.vercel.app",
+    link: "https://staking-contract-seven.vercel.app",
+    code: "https://github.com/bthamachi/staking-contract",
   },
 ];
