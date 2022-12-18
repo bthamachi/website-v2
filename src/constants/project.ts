@@ -14,17 +14,4 @@ export const ProjectData: Project[] = [
     link: "https://staking-contract-seven.vercel.app",
     code: "https://github.com/bthamachi/staking-contract",
   },
-  {
-    title: "Simulating Reentrancy",
-    description:
-      "I put together a few smart contracts together to showcase how reentrancy might happen",
-    actionItems: [
-      "Wrote up a malicious contract that used reentrancy to drain a target contract of funds",
-      "wrote a modified version of the same contract that had reentrancy guards",
-      "Simulated reentrancy and failed reentrancy attack using hardhat",
-    ],
-    techStack: ["Hardhat", "Solidity"],
-    link: "articles/simulating-a-reentrancy-attack",
-    code: "https://github.com/bthamachi/Reentrance-Attack",
-  },
 ];
