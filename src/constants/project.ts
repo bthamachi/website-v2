@@ -1,7 +1,5 @@
 import { Project } from "@/types/Project";
 
-// TODO: Add in a write-up on re-entrancy mockup
-
 export const ProjectData: Project[] = [
   {
     title: "Staking Contract",
