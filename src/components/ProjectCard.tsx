@@ -31,13 +31,13 @@ const ProjectCard = ({
       <SmartLink name="Staking Contract Link" href={link}>
         <div className="flex items-center">
           <LinkIcon className="h-4 w-4" />
-          <p className="ml-2 text-xs">{link}</p>
+          <p className="ml-2 text-xs font-bold underline">Project Link</p>
         </div>
       </SmartLink>
       <SmartLink name="Staking Contract Link" href={code}>
         <div className="-mt-6 flex items-center">
           <CodeBracketIcon className="h-4 w-4" />
-          <p className="ml-2 text-xs">{code}</p>
+          <p className="ml-2 text-xs">Project Code</p>
         </div>
       </SmartLink>
     </div>

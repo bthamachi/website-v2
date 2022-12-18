@@ -1,16 +1,26 @@
 import ArticleCard from "@/components/ArticleCard";
 import HeaderText from "@/components/HeaderText";
+import SearchBar from "@/components/SearchBar";
 import { getAllArticles } from "@/lib/article";
 import { PostData } from "@/types/Post";
+import Fuse from "fuse.js";
+import { useState } from "react";
 import Layout from "../../components/Layout";
 
 type PostIndexPageProps = {
   articleData: PostData[];
 };
 
-// TODO: Fix up an searchbar feature here
-
 export default function PostIndexPage({ articleData }: PostIndexPageProps) {
+  const [searchQuery, updateSearchQuery] = useState("");
+
+  const fuse = new Fuse(articleData, {
+    keys: ["meta.title", "meta.description"],
+    shouldSort: true,
+    threshold: 0.6,
+    isCaseSensitive: false,
+  });
+
   return (
     <Layout>
       <div>
@@ -22,15 +32,31 @@ export default function PostIndexPage({ articleData }: PostIndexPageProps) {
           </p>
         </div>
       </div>
-      {articleData.map((article) => {
-        return (
-          <ArticleCard
-            key={article.meta.title}
-            meta={article.meta}
-            slug={article.slug}
-          />
-        );
-      })}
+      <div className="my-4 max-w-lg ">
+        <SearchBar
+          searchQuery={searchQuery}
+          updateSearchQuery={updateSearchQuery}
+        />
+      </div>
+      {searchQuery.length > 0
+        ? fuse.search(searchQuery).map((item) => {
+            return (
+              <ArticleCard
+                key={item.item.meta.title}
+                meta={item.item.meta}
+                slug={item.item.slug}
+              />
+            );
+          })
+        : articleData.map((article) => {
+            return (
+              <ArticleCard
+                key={article.meta.title}
+                meta={article.meta}
+                slug={article.slug}
+              />
+            );
+          })}
     </Layout>
   );
 }
